@@ -4,6 +4,7 @@
 
 # Directories
 .vscode
+.idea
 
 data
 output

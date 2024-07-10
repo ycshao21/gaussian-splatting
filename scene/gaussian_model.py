@@ -355,7 +355,7 @@ class GaussianModel:
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
-                                              torch.where(torch.norm(self._xyz - origin_xyz) <= origin_r, True, False))
+                                              torch.where(torch.norm(self._xyz-origin_xyz, dim=-1) <= origin_r, True, False))
 
         stds = self.get_scaling[selected_pts_mask].repeat(N,1)
         means =torch.zeros((stds.size(0), 3),device="cuda")
@@ -379,7 +379,7 @@ class GaussianModel:
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values <= self.percent_dense*scene_extent)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
-                                              torch.where(torch.norm(self._xyz-origin_xyz) <= origin_r, True, False))
+                                              torch.where(torch.norm(self._xyz-origin_xyz, dim=-1) <= origin_r, True, False))
 
         new_xyz = self._xyz[selected_pts_mask]
         new_features_dc = self._features_dc[selected_pts_mask]
