@@ -380,20 +380,14 @@ class GaussianModel:
 
         tmp_mask = torch.logical_and(selected_pts_mask, torch.tensor(False, device="cuda"))
         for i in range(len(circles_xyzs)):
-            if not inside:
-                tmp_mask = torch.logical_or(tmp_mask,
-                                            torch.where(
-                                                torch.norm(
-                                                    self._xyz - circles_xyzs[i], dim=-1
-                                                ) <= circles_rs[i], True, False)
-                                            )
-            else:
-                tmp_mask = torch.logical_or(tmp_mask,
-                                            torch.where(
-                                                torch.norm(
-                                                    self._xyz - circles_xyzs[i], dim=-1
-                                                ) >= circles_rs[i], True, False)
-                                            )
+            tmp_mask = torch.logical_or(tmp_mask,
+                                        torch.where(
+                                            torch.norm(
+                                                self._xyz - circles_xyzs[i], dim=-1
+                                            ) <= circles_rs[i], True, False)
+                                        )
+        if not inside:
+            tmp_mask = torch.logical_not(tmp_mask)
         selected_pts_mask = torch.logical_and(selected_pts_mask, tmp_mask)
 
         stds = self.get_scaling[selected_pts_mask].repeat(N,1)
@@ -420,20 +414,14 @@ class GaussianModel:
 
         tmp_mask = torch.logical_and(selected_pts_mask, torch.tensor(False, device="cuda"))
         for i in range(len(circles_xyzs)):
-            if not inside:
-                tmp_mask = torch.logical_or(tmp_mask,
-                                            torch.where(
-                                                torch.norm(
-                                                    self._xyz-circles_xyzs[i], dim=-1
-                                                ) <= circles_rs[i], True, False)
-                                            )
-            else:
-                tmp_mask = torch.logical_or(tmp_mask,
-                                            torch.where(
-                                                torch.norm(
-                                                    self._xyz - circles_xyzs[i], dim=-1
-                                                ) >= circles_rs[i], True, False)
-                                            )
+            tmp_mask = torch.logical_or(tmp_mask,
+                                        torch.where(
+                                            torch.norm(
+                                                self._xyz-circles_xyzs[i], dim=-1
+                                            ) <= circles_rs[i], True, False)
+                                        )
+        if not inside:
+            tmp_mask = torch.logical_not(tmp_mask)
         selected_pts_mask = torch.logical_and(selected_pts_mask, tmp_mask)
 
         new_xyz = self._xyz[selected_pts_mask]
@@ -449,8 +437,8 @@ class GaussianModel:
         grads = self.xyz_gradient_accum / self.denom
         grads[grads.isnan()] = 0.0
 
-        self.densify_and_clone(grads, max_grad, extent, circles_xyzs, circles_rs, inside)
-        self.densify_and_split(grads, max_grad, extent, circles_xyzs, circles_rs, inside)
+        self.densify_and_clone(grads, max_grad, extent, circles_xyzs, circles_rs, inside=inside)
+        self.densify_and_split(grads, max_grad, extent, circles_xyzs, circles_rs, inside=inside)
 
         prune_mask = (self.get_opacity < min_opacity).squeeze()
         if max_screen_size:
