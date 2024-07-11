@@ -35,7 +35,7 @@ class Scene:
                 self.loaded_iter = searchForMaxIteration(os.path.join(self.model_path, "point_cloud"))
             else:
                 self.loaded_iter = load_iteration
-            print("Loading trained model at iteration {}".format(self.loaded_iter))
+            print(f"Loading trained model at iteration {self.loaded_iter}")
 
         self.train_cameras = {}
         self.test_cameras = {}
