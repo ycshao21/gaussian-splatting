@@ -48,6 +48,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
+
+    circles_xyzs = [torch.tensor([0.326419, 0.892643, 0.72607], dtype=torch.float64, device="cuda"),
+                    torch.tensor([5.01227, 1.98988, -0.380355], dtype=torch.float64, device="cuda"),
+                    torch.tensor([0.662707, -1.07687, 7.05663], dtype=torch.float64, device="cuda")]
+    circles_rs = [1, 2, 2]
+
+
     for iteration in range(first_iter, opt.iterations + 1):        
         if network_gui.conn == None:
             network_gui.try_connect()
@@ -118,7 +125,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
                     size_threshold = 20 if iteration > opt.opacity_reset_interval else None
                     gaussians.densify_and_prune(opt.densify_grad_threshold, 0.005, scene.cameras_extent, size_threshold,
-                                                torch.tensor([0.0, 0.0, 0.0], dtype=torch.float64, device="cuda"), 2.0)
+                                                circles_xyzs, circles_rs, inside=False)
                 
                 if iteration % opt.opacity_reset_interval == 0 or (dataset.white_background and iteration == opt.densify_from_iter):
                     gaussians.reset_opacity()
