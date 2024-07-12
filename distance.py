@@ -1,29 +1,9 @@
-import collections
 import numpy as np
-import struct
 import math
-import matplotlib.pyplot as plt
+import torch
 from sklearn.cluster import KMeans
 
 pi=3.141592654
-result=[] # [[centerPoint,R],[centerPoint,R]......]
-
-
-def read_next_bytes(fid, num_bytes, format_char_sequence, endian_character="<"):
-    data = fid.read(num_bytes)
-    return struct.unpack(endian_character + format_char_sequence, data)
-# 读入点云坐标bin
-def read_points3D_binary(path_to_model_file):
-    points3D={}
-    with open(path_to_model_file, "rb") as fid:
-        num_points = read_next_bytes(fid, 8, "Q")[0]
-        for _ in range(num_points):
-            binary_point_line_properties = read_next_bytes(
-                fid, num_bytes=43, format_char_sequence="QdddBBBd")
-            point3D_id = binary_point_line_properties[0]
-            xyz = np.array(binary_point_line_properties[1:4])
-            points3D[point3D_id] = xyz
-    return points3D
 
 # 读入点云坐标txt
 def read_points3D_text(path):
@@ -65,22 +45,6 @@ def getR(point3D,centerPoint):
             return i+1
     return -1
 
-    #d2y = np.gradient(np.gradient(density, stepSum), stepSum)
-
-    xpoints = np.array(stepSum)
-    ypoints = np.array(density)
-    plt.plot(xpoints, ypoints, linewidth=2.0, color='b',)
-    plt.title(str(centerPoint[0])+','+str(centerPoint[1])+','+str(centerPoint[2]))
-    plt.xlabel('R')
-    plt.ylabel('density')
-    plt.show()
-
-    #for i in range(len(d2y) - 1):
-        #if d2y[i] < 0 and d2y[i + 1] > 0:
-            #return(stepSum[i])
-    #return -1
-
-
 # kmeans
 def kmeans_clustering(data, num_clusters):
 
@@ -93,24 +57,23 @@ def kmeans_clustering(data, num_clusters):
     # 返回每个簇的中心坐标
     return kmeans.cluster_centers_
 
-def main():
+def getCenterAndR(filepath): #输入point3D.txt的文件路径
 
-    for k in [1,2,3,4,5,6,7,8,9,10]:
-        # 读数据
-        point3D=read_points3D_text("C:/Users/86181/Desktop/txt/points3D.txt")
+    resultCenters =[]
+    resultR=[]
 
-        #kmeans求中心点
-        centers = kmeans_clustering(point3D, k)
+    # 读数据
+    point3D=read_points3D_text(filepath)
+    #kmeans求中心点
+    centers = kmeans_clustering(point3D, 3)
 
-        # 求半径
-        for centerPoint in centers:
-            result.append([centerPoint,(getR(point3D,centerPoint))])
+    # 求半径
+    for centerPoint in centers:
+        resultCenters.append(torch.tensor(centerPoint,dtype=torch.float64,device="cuda"))
+        resultR.append(getR(point3D,centerPoint))
 
-        print([k,result])
-        file = open('C:/Users/86181/Desktop/out.txt', "a")
-        file.write(str(k)+"个聚类:"+str([k,result]));
-        file.close()
+    return resultCenters,resultR
 
-
-if __name__ == '__main__':
-    main()
+l1,l2=getCenterAndR("C:/Users/86181/Desktop/txt/points3D.txt")
+print(l1)
+print(l2)
