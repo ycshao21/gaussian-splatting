@@ -1,6 +1,7 @@
 # Files
 *.pyc
 *.zip
+*.tar.gz
 
 # Directories
 .vscode
@@ -8,6 +9,7 @@
 data
 output
 build
+__pycache__
 
 diff_rasterization/diff_rast.egg-info
 diff_rasterization/dist

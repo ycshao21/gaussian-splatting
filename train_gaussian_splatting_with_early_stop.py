@@ -11,7 +11,6 @@
 
 import os
 import torch
-import numpy as np
 from random import randint
 from utils.loss_utils import l1_loss, ssim
 from gaussian_renderer import render, network_gui
@@ -21,6 +20,7 @@ from utils.general_utils import safe_state
 import uuid
 from tqdm import tqdm
 from utils.image_utils import psnr
+from utils.logger_utils import prepare_output_directory, prepare_logger
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
 from distance import getCenterAndR
@@ -31,11 +31,11 @@ except ImportError:
     TENSORBOARD_FOUND = False
 
 # 设置是否使用 GUI 服务器
-USE_NETWORK_GUI = False
+ENABLE_NETWORK_GUI = False
 
 USE_EARLY_STOP = False
 
-def training(dataset, opt, pipe, checkpoint_iterations, checkpoint, debug_from):
+def training_gaussian_splatting(dataset, opt, pipe, checkpoint_iterations, checkpoint, debug_from):
     # 准备输出文件夹和 Tensorboard SummaryWriter
     prepare_output_directory(dataset)
     tb_writer = prepare_logger(dataset.model_path)
@@ -58,7 +58,7 @@ def training(dataset, opt, pipe, checkpoint_iterations, checkpoint, debug_from):
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
 
-    # 准备用时测试
+    # 准备用时计时器
     train_start = torch.cuda.Event(enable_timing = True)
     train_end = torch.cuda.Event(enable_timing = True)
 
@@ -87,7 +87,7 @@ def training(dataset, opt, pipe, checkpoint_iterations, checkpoint, debug_from):
 
     for iteration in range(first_iter, opt.iterations + 1):        
 
-        if USE_NETWORK_GUI:
+        if ENABLE_NETWORK_GUI:
             # 为 GUI 渲染当前图像
             if network_gui.conn == None:
                 network_gui.try_connect()
@@ -197,55 +197,7 @@ def training(dataset, opt, pipe, checkpoint_iterations, checkpoint, debug_from):
             if iteration in checkpoint_iterations:
                 print(f"\n[ITER {iteration}] Saving Checkpoint")
                 torch.save((gaussians.capture(), iteration), os.path.join(scene.model_path, f"chkpnt{iteration}.pth"))
-                
 
-def prepare_output_directory(args):    
-    """
-    设置模型保存路径，并创建输出文件夹
-
-    Parameters
-    ----------
-    model_path : _type_
-        _description_
-    """
-    # 如果没有指定模型保存路径，则生成一个 10 位的 uuid 作为文件夹名
-    if not args.model_path:
-        if os.getenv('OAR_JOB_ID'):
-            unique_str = os.getenv('OAR_JOB_ID')
-        else:
-            unique_str = str(uuid.uuid4())
-        args.model_path = os.path.join("output", unique_str[0:10])
-        
-    print(f"Output folder: {args.model_path}")
-
-    # 创建输出文件夹
-    os.makedirs(args.model_path, exist_ok = True)
-    with open(os.path.join(args.model_path, "cfg_args"), 'w') as cfg_log_f:
-        cfg_log_f.write(str(Namespace(**vars(args))))
-
-
-def prepare_logger(model_path):
-    """
-    设置 Tensorboard 日志
-
-    Parameters
-    ----------
-    model_path : str
-        模型保存路径
-
-    Returns
-    -------
-    tb_writer : SummaryWriter
-        Tensorboard 的日志记录器
-    """
-    tb_writer = None 
-
-    if TENSORBOARD_FOUND:
-        tb_writer = SummaryWriter(model_path)
-    else:
-        print("Tensorboard not available: not logging progress")
-
-    return tb_writer
 
 
 def evaluate(tb_writer, iteration, l1_loss, scene : Scene, renderFunc, renderArgs):
@@ -293,7 +245,7 @@ if __name__ == "__main__":
     opt_params = OptimizationParams(parser)
     pipeline_params = PipelineParams(parser)
 
-    parser.add_argument('--gpu_id', type=str, default="0")  # 指定使用的 GPU
+    # parser.add_argument('--gpu_id', type=str, default="0")  # 指定使用的 GPU
     parser.add_argument('--ip', type=str, default="127.0.0.1")
     parser.add_argument('--port', type=int, default=6009)
     parser.add_argument('--debug_from', type=int, default=-1)
@@ -303,6 +255,7 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
+
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
 
@@ -311,17 +264,15 @@ if __name__ == "__main__":
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    if USE_NETWORK_GUI:
-        # Start GUI server, configure and run training
+    if ENABLE_NETWORK_GUI:
         # [NOTE] 如果 GUI 服务器的 IP 和端口被占用，则无法同时使用两张显卡进行训练
-        # 为避免不必要的麻烦，这里设置了 USE_NETWORK_GUI 为 False
         network_gui.init(args.ip, args.port)
 
-    # 设置使用的 GPU
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
+    # # 设置使用的 GPU
+    # os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
 
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(model_params.extract(args), opt_params.extract(args), pipeline_params.extract(args), args.checkpoint_iterations, args.start_checkpoint, args.debug_from)
+    training_gaussian_splatting(model_params.extract(args), opt_params.extract(args), pipeline_params.extract(args), args.checkpoint_iterations, args.start_checkpoint, args.debug_from)
 
     # All done
     print("\nTraining complete.")
