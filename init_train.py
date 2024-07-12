@@ -22,6 +22,7 @@ from tqdm import tqdm
 from utils.image_utils import psnr
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
+import kmeans
 
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -52,11 +53,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
 
-    circles_xyzs = [torch.tensor([0.326419, 0.892643, 0.72607], dtype=torch.float64, device="cuda"),
-                    torch.tensor([5.01227, 1.98988, -0.380355], dtype=torch.float64, device="cuda"),
-                    torch.tensor([0.662707, -1.07687, 7.05663], dtype=torch.float64, device="cuda")]
-    circles_rs = [2.5, 3, 3]
-    max_split_times = {"inside": 1, "outside": 4}
+    # circles_xyzs = [torch.tensor([0.326419, 0.892643, 0.72607], dtype=torch.float64, device="cuda"),
+    #                 torch.tensor([5.01227, 1.98988, -0.380355], dtype=torch.float64, device="cuda"),
+    #                 torch.tensor([0.662707, -1.07687, 7.05663], dtype=torch.float64, device="cuda")]
+    # circles_rs = [2.5, 3, 3]
+    circles_xyzs, circles_rs = kmeans.getCenterAndR(gaussians.get_xyz.cpu().detach(), 3)
+    max_split_times = {"inside": 5, "outside": 20}
     split_times = 0  # 目前总共分裂了几次
 
     for iteration in range(first_iter, opt.iterations + 1):

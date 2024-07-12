@@ -6,19 +6,12 @@ from sklearn.cluster import KMeans
 pi=3.141592654
 
 # 读入点云坐标txt
-def read_points3D_text(path):
+def read_points3D(gaussian_points):
     points3D = {}
-    with open(path, "r") as fid:
-        while True:
-            line = fid.readline()
-            if not line:
-                break
-            line = line.strip()
-            if len(line) > 0 and line[0] != "#":
-                elems = line.split()
-                point3D_id = int(elems[0])
-                xyz = np.array(tuple(map(float, elems[1:4])))
-                points3D[point3D_id] = xyz
+    for i in range(gaussian_points.shape[0]):
+        point3D_id = i
+        xyz = np.array(gaussian_points[i, :], dtype=np.float64)
+        points3D[point3D_id] = xyz
     return points3D
 
 # getR
@@ -57,23 +50,22 @@ def kmeans_clustering(data, num_clusters):
     # 返回每个簇的中心坐标
     return kmeans.cluster_centers_
 
-def getCenterAndR(filepath): #输入point3D.txt的文件路径
-
+def getCenterAndR(gaussian_points, num_clusters):
     resultCenters =[]
     resultR=[]
 
     # 读数据
-    point3D=read_points3D_text(filepath)
+    point3D=read_points3D(gaussian_points)
     #kmeans求中心点
-    centers = kmeans_clustering(point3D, 3)
+    centers = kmeans_clustering(point3D, num_clusters)
 
     # 求半径
     for centerPoint in centers:
-        resultCenters.append(torch.tensor(centerPoint,dtype=torch.float64,device="cuda"))
-        resultR.append(getR(point3D,centerPoint))
+        R = getR(point3D, centerPoint)
+        if R == -1:
+            continue
+        resultCenters.append(torch.tensor(centerPoint, dtype=torch.float64, device="cuda"))
+        resultR.append(getR(point3D, centerPoint))
 
-    return resultCenters,resultR
+    return resultCenters, resultR
 
-l1,l2=getCenterAndR("C:/Users/86181/Desktop/txt/points3D.txt")
-print(l1)
-print(l2)
