@@ -23,6 +23,7 @@ from tqdm import tqdm
 from utils.image_utils import psnr
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
+from distance import getCenterAndR
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -78,10 +79,10 @@ def training(dataset, opt, pipe, checkpoint_iterations, checkpoint, debug_from):
     # 开始训练
     first_iter += 1
 
-    circles_xyzs = [torch.tensor([0.326419, 0.892643, 0.72607], dtype=torch.float64, device="cuda"),
-                    torch.tensor([5.01227, 1.98988, -0.380355], dtype=torch.float64, device="cuda"),
-                    torch.tensor([0.662707, -1.07687, 7.05663], dtype=torch.float64, device="cuda")]
-    circles_rs = [1, 2, 2]
+    circles_xyzs , circles_rs = getCenterAndR()
+
+    #circles_xyzs = [torch.tensor([0.326419, 0.892643, 0.72607], dtype=torch.float64, device="cuda"),torch.tensor([5.01227, 1.98988, -0.380355], dtype=torch.float64, device="cuda"),torch.tensor([0.662707, -1.07687, 7.05663], dtype=torch.float64, device="cuda")]
+    #circles_rs = [1, 2, 2]
 
 
     for iteration in range(first_iter, opt.iterations + 1):        
@@ -304,7 +305,7 @@ if __name__ == "__main__":
     parser.add_argument("--start_checkpoint", type=str, default = None)
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
-    
+
     print("Optimizing " + args.model_path)
 
     # Initialize system state (RNG)

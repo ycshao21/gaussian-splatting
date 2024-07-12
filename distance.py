@@ -2,12 +2,13 @@ import numpy as np
 import math
 import torch
 from sklearn.cluster import KMeans
-
+import os
 pi=3.141592654
 
 # 读入点云坐标txt
 def read_points3D_text(path):
     points3D = {}
+    os.getcwd()
     with open(path, "r") as fid:
         while True:
             line = fid.readline()
@@ -57,13 +58,14 @@ def kmeans_clustering(data, num_clusters):
     # 返回每个簇的中心坐标
     return kmeans.cluster_centers_
 
-def getCenterAndR(filepath): #输入point3D.txt的文件路径
+def getCenterAndR(): #输入point3D.txt的文件路径
 
     resultCenters =[]
     resultR=[]
 
     # 读数据
-    point3D=read_points3D_text(filepath)
+    currentPath=os.getcwd()
+    point3D=read_points3D_text(currentPath+'\data\sparse\\0\points3D.txt')
     #kmeans求中心点
     centers = kmeans_clustering(point3D, 3)
 
@@ -74,6 +76,4 @@ def getCenterAndR(filepath): #输入point3D.txt的文件路径
 
     return resultCenters,resultR
 
-l1,l2=getCenterAndR("C:/Users/86181/Desktop/txt/points3D.txt")
-print(l1)
-print(l2)
+print(getCenterAndR())
