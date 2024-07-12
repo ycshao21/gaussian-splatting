@@ -2,7 +2,7 @@ import numpy as np
 import math
 import torch
 from sklearn.cluster import KMeans
-
+import os
 pi=3.141592654
 
 # 读入点云坐标txt
