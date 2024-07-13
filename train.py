@@ -84,7 +84,7 @@ def training(dataset, opt, pipe, checkpoint_iterations, checkpoint, debug_from):
     #                 torch.tensor([5.01227, 1.98988, -0.380355], dtype=torch.float64, device="cuda"),
     #                 torch.tensor([0.662707, -1.07687, 7.05663], dtype=torch.float64, device="cuda")]
     # circles_rs = [2.5, 3, 3]
-    circles_xyzs, circles_rs = kmeans.getCenterAndR(gaussians.get_xyz.cpu().detach(), 3)
+    circles_xyzs, circles_rs = kmeans.getCenterAndR(gaussians.get_xyz.cpu().detach(), 20)
     max_split_times = {"inside": 5, "outside": 20}
     split_times = 0  # 目前总共分裂了几次
 

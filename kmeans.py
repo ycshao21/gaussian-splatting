@@ -6,18 +6,19 @@ import os
 pi=3.141592654
 
 # 读入点云坐标txt
-def read_points3D(gaussian_points):
-    points3D = {}
+def cleanPoints(gaussian_points):
+    points3D = []
     for i in range(gaussian_points.shape[0]):
-        point3D_id = i
         xyz = np.array(gaussian_points[i, :], dtype=np.float64)
-        points3D[point3D_id] = xyz
-    return points3D
+        if abs(xyz[0])>20 or abs(xyz[1])>20 or abs(xyz[2])>20:
+            continue
+        points3D.append(xyz)
+    return np.array(points3D)
 
 # getR
 def getR(point3D,centerPoint):
     centerDistance=[]
-    for value in point3D.values():
+    for value in point3D:
         centerDistance.append(math.sqrt((value[0]-centerPoint[0])*(value[0]-centerPoint[0])+(value[1]-centerPoint[1])*(value[1]-centerPoint[1])
                                         +(value[2]-centerPoint[2])*(value[2]-centerPoint[2])))
     centerDistance.sort()
@@ -35,37 +36,34 @@ def getR(point3D,centerPoint):
 
     for i in range(len(density) - 2):
         if density[i]*3/4>density[i+1]:
-            return i+1
-    return -1
+            return i+1, density[i]
+    return -1, -1
 
 # kmeans
 def kmeans_clustering(data, num_clusters):
-
-    coordinates = np.array(list(data.values()))
-
     # 初始化KMeans并进行聚类
     kmeans = KMeans(n_clusters=num_clusters, random_state=0)
-    kmeans.fit(coordinates)
+    kmeans = kmeans.fit(data)
 
     # 返回每个簇的中心坐标
     return kmeans.cluster_centers_
 
 def getCenterAndR(gaussian_points, num_clusters):
-    resultCenters =[]
-    resultR=[]
+    result = []
 
-    # 读数据
-    point3D=read_points3D(gaussian_points)
-    #kmeans求中心点
-    centers = kmeans_clustering(point3D, num_clusters)
+    gaussian_points = cleanPoints(gaussian_points)
+    centers = kmeans_clustering(gaussian_points, num_clusters)
 
     # 求半径
     for centerPoint in centers:
-        R = getR(point3D, centerPoint)
+        R, densi = getR(gaussian_points, centerPoint)
         if R == -1:
             continue
-        resultCenters.append(torch.tensor(centerPoint, dtype=torch.float64, device="cuda"))
-        resultR.append(getR(point3D, centerPoint))
-
-    return resultCenters, resultR
+        result.append([
+            torch.tensor(centerPoint, dtype=torch.float64, device="cuda"),
+            R,
+            densi
+        ])
+    result.sort(key=lambda x: x[2], reverse=True)
+    return [row[0] for row in result[:3]], [row[1] for row in result[:3]]
 
