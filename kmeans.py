@@ -65,5 +65,5 @@ def getCenterAndR(gaussian_points, num_clusters):
             densi
         ])
     result.sort(key=lambda x: x[2], reverse=True)
-    return [row[0] for row in result[:3]], [row[1] for row in result[:3]]
+    return [row[0] for row in result[:7]], [row[1] for row in result[:7]]
 

@@ -308,15 +308,18 @@ class GaussianModel:
                 optimizable_tensors[group["name"]] = group["params"][0]
         return optimizable_tensors
 
-
-    def prune_points(self, mask, inside_outside_mask):
+    def merge_io_mask(self, mask, inside_outside_mask):
         if inside_outside_mask.shape[0]>=mask.shape[0]:
             inside_outside_mask = inside_outside_mask[:mask.shape[0]]
-            mask = torch.logical_and(mask, inside_outside_mask)
+            ret = torch.logical_and(mask, inside_outside_mask)
         else:
             n = int(mask.shape[0] - inside_outside_mask.shape[0])
             inside_outside_mask = torch.cat((inside_outside_mask, torch.zeros(n, device="cuda", dtype=bool)))
-            mask = torch.logical_and(mask, inside_outside_mask)
+            ret = torch.logical_and(mask, inside_outside_mask)
+        return ret
+
+    def prune_points(self, mask, inside_outside_mask):
+        mask = self.merge_io_mask(mask, inside_outside_mask)
         valid_points_mask = ~mask
         optimizable_tensors = self._prune_optimizer(valid_points_mask)
 
@@ -384,6 +387,7 @@ class GaussianModel:
         selected_pts_mask = torch.where(padded_grad >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
+        selected_pts_mask = self.merge_io_mask(selected_pts_mask, inside_outside_mask)
 
         stds = self.get_scaling[selected_pts_mask].repeat(N,1)
         means =torch.zeros((stds.size(0), 3),device="cuda")
@@ -401,11 +405,13 @@ class GaussianModel:
         prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
         self.prune_points(prune_filter, inside_outside_mask)
 
-    def densify_and_clone(self, grads, grad_threshold, scene_extent):
+    def densify_and_clone(self, grads, grad_threshold, scene_extent, inside_outside_mask):
         # Extract points that satisfy the gradient condition
         selected_pts_mask = torch.where(torch.norm(grads, dim=-1) >= grad_threshold, True, False)
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values <= self.percent_dense*scene_extent)
+
+        selected_pts_mask = self.merge_io_mask(selected_pts_mask, inside_outside_mask)
 
         new_xyz = self._xyz[selected_pts_mask]
         new_features_dc = self._features_dc[selected_pts_mask]
@@ -433,27 +439,24 @@ class GaussianModel:
             inside_mask = torch.logical_and(inside_mask, torch.tensor(False, device="cuda"))
         if split_times >= max_split_times["outside"]:
             outside_mask = torch.logical_and(outside_mask, torch.tensor(False, device="cuda"))
-        tmp_mask = torch.logical_or(inside_mask, outside_mask)
-        return tmp_mask
+
+        return inside_mask, outside_mask
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size, circles_xyzs, circles_rs, max_split_times, split_times):
         grads = self.xyz_gradient_accum / self.denom
         grads[grads.isnan()] = 0.0
 
-        inside_outside_mask = self.get_inside_outside_mask(circles_xyzs, circles_rs, max_split_times, split_times)
-        self.densify_and_clone(grads, max_grad, extent)
-        self.densify_and_split(grads, max_grad, extent, inside_outside_mask)
+        inside_mask, outside_mask = self.get_inside_outside_mask(circles_xyzs, circles_rs, max_split_times, split_times)
+        self.densify_and_clone(grads, max_grad, extent, outside_mask)
+        self.densify_and_split(grads, max_grad, extent, torch.logical_or(inside_mask, outside_mask))
 
         prune_mask = (self.get_opacity < min_opacity).squeeze()
         if max_screen_size:
             big_points_vs = self.max_radii2D > max_screen_size
             big_points_ws = self.get_scaling.max(dim=1).values > 0.1 * extent
             prune_mask = torch.logical_or(torch.logical_or(prune_mask, big_points_vs), big_points_ws)
-        max_split_times2 = max_split_times
-        max_split_times2["inside"] += 2
-        max_split_times2["outside"] += 2
-        inside_outside_mask = self.get_inside_outside_mask(circles_xyzs, circles_rs, max_split_times2, split_times)
-        self.prune_points(prune_mask, inside_outside_mask)
+        inside_mask, outside_mask = self.get_inside_outside_mask(circles_xyzs, circles_rs, max_split_times, split_times)
+        self.prune_points(prune_mask, torch.logical_or(inside_mask, outside_mask))
 
         torch.cuda.empty_cache()
 
