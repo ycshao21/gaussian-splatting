@@ -59,7 +59,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     # circles_rs = [2.5, 3, 3]
     circles_xyzs, circles_rs = kmeans.getCenterAndR(gaussians.get_xyz.cpu().detach(), 20)
     max_split_times = {"inside": 10, "outside": 120}
-    max_clone_times = {"inside": 0, "outside": 40}
+    max_clone_times = {"inside": 1, "outside": 40}
     split_times = 0  # 目前总共分裂了几次
 
     for iteration in range(first_iter, opt.iterations + 1):

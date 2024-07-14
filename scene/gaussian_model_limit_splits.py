@@ -147,7 +147,7 @@ class GaussianModelLimitSplits(BaseGaussianModel):
         grads[grads.isnan()] = 0.0
 
         inside_mask, outside_mask = self.get_inside_outside_mask(circles_xyzs, circles_rs, max_clone_times, split_times)
-        self.densify_and_clone(grads, max_grad, extent, outside_mask)
+        self.densify_and_clone(grads, max_grad, extent, torch.logical_or(inside_mask, outside_mask))
         inside_mask, outside_mask = self.get_inside_outside_mask(circles_xyzs, circles_rs, max_split_times, split_times)
         self.densify_and_split(grads, max_grad, extent, torch.logical_or(inside_mask, outside_mask))
 

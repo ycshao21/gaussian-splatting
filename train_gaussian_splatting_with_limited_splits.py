@@ -242,7 +242,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_clusters", type=int, default=20)
     parser.add_argument("--inside_split_times", type=int, default=10)
     parser.add_argument("--outside_split_times", type=int, default=120)
-    parser.add_argument("--inside_clone_times", type=int, default=0)
+    parser.add_argument("--inside_clone_times", type=int, default=1)
     parser.add_argument("--outside_clone_times", type=int, default=40)
 
     args = parser.parse_args(sys.argv[1:])
