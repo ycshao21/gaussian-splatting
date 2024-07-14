@@ -23,16 +23,18 @@ port=2000
 # Only one dataset specified here
 declare -a run_args=(
   # >>> Mip-NeRF360 >>>
-    "bicycle"
-    "bonsai"
-    "counter"
-    "garden"
+    # "bicycle"
+    # "bonsai"
+    # "counter"
+    "flowers"
+    # "garden"
     # "kitchen"
     # "room"
     # "stump"
-    # "truck"
+    "treehill"
   # <<< Mip-NeRF360 <<<
     
+    # "truck"
     # "train"
   )
 

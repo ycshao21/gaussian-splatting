@@ -3,7 +3,7 @@ import torch
 from random import randint
 from utils.loss_utils import l1_loss, ssim
 from lpipsPyTorch import lpips
-from scene import Scene, GaussianModel
+from scene import Scene
 from utils.general_utils import safe_state
 import uuid
 from utils.image_utils import psnr
