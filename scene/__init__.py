@@ -14,16 +14,19 @@ import random
 import json
 from utils.system_utils import searchForMaxIteration
 from scene.dataset_readers import sceneLoadTypeCallbacks
-from scene.gaussian_model import GaussianModel
+
+# >>> 高斯模型 >>>
+from scene.gaussian_model_original import GaussianModelOriginal
+from scene.gaussian_model_limit_splits import GaussianModelLimitSplits
 from scene.lightgaussian_model import LightGaussianModel
+# <<< 高斯模型 <<<
+
 from arguments import ModelParams
 from utils.camera_utils import cameraList_from_camInfos, camera_to_JSON
 
 class Scene:
 
-    gaussians : GaussianModel
-
-    def __init__(self, args : ModelParams, gaussians : GaussianModel, load_iteration=None, shuffle=True, resolution_scales=[1.0]):
+    def __init__(self, args : ModelParams, gaussians : GaussianModelOriginal, load_iteration=None, shuffle=True, resolution_scales=[1.0]):
         """b
         :param path: Path to colmap scene main folder.
         """

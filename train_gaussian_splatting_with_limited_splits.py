@@ -14,7 +14,7 @@ import torch
 from random import randint
 from utils.loss_utils import l1_loss, ssim
 import sys
-from scene import Scene, GaussianModelOriginal
+from scene import Scene, GaussianModelLimitSplits
 from utils.general_utils import safe_state
 from utils.logger_utils import training_report, prepare_output_directory, prepare_logger
 from utils.network_gui_utils import NetworkGUI
@@ -25,6 +25,9 @@ from tqdm import tqdm
 from utils.image_utils import psnr
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
+
+import kmeans
+
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -34,7 +37,8 @@ except ImportError:
 # 设置是否使用 GUI 服务器
 ENABLE_NETWORK_GUI = False
 
-def training_gaussian_splatting(
+
+def train_gaussian_splatting_with_limited_splits(
     dataset,
     opt,
     pipe,
@@ -43,13 +47,16 @@ def training_gaussian_splatting(
     checkpoint_iterations,
     checkpoint,
     debug_from,
+    num_clusters,
+    inside_split_times,
+    outside_split_times
 ):
     # 准备输出文件夹和 Tensorboard SummaryWriter
     prepare_output_directory(dataset)
     tb_writer = prepare_logger(dataset.model_path)
 
     # 3D 高斯模型，给点云中的每个点创建一个 3D gaussian
-    gaussians = GaussianModelOriginal(dataset.sh_degree)
+    gaussians = GaussianModelLimitSplits(dataset.sh_degree)
     # 加载场景，读取数据集和每张图片对应的摄像机的参数
     scene = Scene(dataset, gaussians)
 
@@ -74,7 +81,16 @@ def training_gaussian_splatting(
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
 
-
+    # >>> 限制分裂 >>>
+    if num_clusters is not None:
+        circles_xyzs, circles_rs = kmeans.getCenterAndR(gaussians.get_xyz.cpu().detach(), num_clusters)  # 获取聚类中心和半径
+        max_split_times = {
+            "inside": inside_split_times,  # 内部分裂次数
+            "outside": outside_split_times,  # 外部分裂次数
+        }
+        split_times = 0  # 目前总共分裂了几次
+        # <<< 限制分裂 <<<
+    
     # 开始训练
     first_iter += 1
     for iteration in range(first_iter, opt.iterations + 1):        
@@ -164,9 +180,17 @@ def training_gaussian_splatting(
                     size_threshold = 20 if iteration > opt.opacity_reset_interval else None
                     gaussians.densify_and_prune(
                         opt.densify_grad_threshold,
-                        0.005, scene.cameras_extent,
+                        0.005,
+                        scene.cameras_extent,
                         size_threshold,
+                        # >>> 限制分裂 >>>
+                        circles_xyzs,
+                        circles_rs,
+                        max_split_times,
+                        split_times
+                        # <<< 限制分裂 <<<
                     )
+                    split_times += 1
                 
                 if iteration % opt.opacity_reset_interval == 0 or (dataset.white_background and iteration == opt.densify_from_iter):
                     gaussians.reset_opacity()
@@ -207,6 +231,9 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default = None)
+    parser.add_argument("--num_clusters", type=int, default=None)
+    parser.add_argument("--inside_split_times", type=int, default=None)
+    parser.add_argument("--outside_split_times", type=int, default=None)
 
     args = parser.parse_args(sys.argv[1:])
     args.save_iterations.append(args.iterations)
@@ -220,11 +247,8 @@ if __name__ == "__main__":
         # [NOTE] 如果 GUI 服务器的 IP 和端口被占用，则无法同时使用两张显卡进行训练
         NetworkGUI.init(args.ip, args.port)
 
-    # # 设置使用的 GPU
-    # os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
-
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training_gaussian_splatting(
+    train_gaussian_splatting_with_limited_splits(
         lp.extract(args),
         op.extract(args),
         pp.extract(args),
@@ -233,6 +257,9 @@ if __name__ == "__main__":
         args.checkpoint_iterations,
         args.start_checkpoint,
         args.debug_from,
+        args.num_clusters,
+        args.inside_split_times,
+        args.outside_split_times
     )
     # All done
     print("\nTraining complete.")
