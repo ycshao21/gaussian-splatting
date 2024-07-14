@@ -23,15 +23,15 @@ port=3000
 # Only one dataset specified here
 declare -a run_args=(
   # >>> Mip-NeRF360 >>>
-    # "bicycle"
-    # "bonsai"
-    # "counter"
+    "bicycle"
+    "bonsai"
+    "counter"
     "flowers"
-    # "garden"
-    # "kitchen"
+    "garden"
+    "kitchen"
     # "room"
     # "stump"
-    "treehill"
+    # "treehill"
   # <<< Mip-NeRF360 <<<
     
     # "truck"
@@ -43,25 +43,25 @@ declare -a nums_clusters=(
 )
 
 inside_split_times=10
-outside_split_times=50
+outside_split_times=120
+inside_clone_times=0
+outside_clone_times=40
 
+# 创建日志文件夹
+log_dir="logs/gaussian_splatting_limit"
+if [ ! -d "$log_dir" ]; then
+  mkdir -p "$log_dir"
+fi
+
+# 创建输出文件夹
+output_dir="output/gaussian_splatting_limit"
+if [ ! -d "$output_dir" ]; then
+  mkdir -p "$output_dir"
+fi
 
 # Loop over the arguments array
 for arg in "${run_args[@]}"; do  # 遍历训练使用的数据集
   for num_clusters in "${nums_clusters[@]}"; do  # 遍历不同的聚类数
-
-    # 创建日志文件夹
-    log_dir="logs/gaussian_splatting/limited_splits_$num_clusters-$inside_split_times-$outside_split_times"
-    if [ ! -d "$log_dir" ]; then
-      mkdir -p "$log_dir"
-    fi
-
-    # 创建输出文件夹
-    output_dir="output/gaussian_splatting/limited_splits_$num_clusters-$inside_split_times-$outside_split_times"
-    if [ ! -d "$output_dir" ]; then
-      mkdir -p "$output_dir"
-    fi
-
     # Wait for an available GPU
     while true; do
       gpu_id=$(get_available_gpu)
@@ -74,17 +74,19 @@ for arg in "${run_args[@]}"; do  # 遍历训练使用的数据集
           --num_clusters $num_clusters \
           --inside_split_times $inside_split_times \
           --outside_split_times $outside_split_times \
+          --inside_clone_times $inside_clone_times \
+          --outside_clone_times $outside_clone_times \
           --port $port > "$log_dir/train_$arg.log" 2>&1 &
 
         # Increment the port number for the next run
         ((port++))
 
         # Allow some time for the process to initialize and potentially use GPU memory
-        sleep 60
+        sleep 20
         break
       else
         echo "No GPU available at the moment. Retrying in 1 minute."
-        sleep 60
+        sleep 20
       fi
       done
         

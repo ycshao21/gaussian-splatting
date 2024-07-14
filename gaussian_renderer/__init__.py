@@ -46,7 +46,7 @@ def render(viewpoint_camera, pc : GaussianModelLimitSplits, pipe, bg_color : tor
         campos=viewpoint_camera.camera_center,
         prefiltered=False,
         debug=pipe.debug,
-        f_count=False
+        # f_count=False
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
