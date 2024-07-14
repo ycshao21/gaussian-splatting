@@ -85,7 +85,8 @@ def training_gaussian_splatting(dataset, opt, pipe, checkpoint_iterations, check
     #                 torch.tensor([0.662707, -1.07687, 7.05663], dtype=torch.float64, device="cuda")]
     # circles_rs = [2.5, 3, 3]
     circles_xyzs, circles_rs = kmeans.getCenterAndR(gaussians.get_xyz.cpu().detach(), 20)
-    max_split_times = {"inside": 5, "outside": 20}
+    max_split_times = {"inside": 10, "outside": 120}
+    max_clone_times = {"inside": 0, "outside": 40}
     split_times = 0  # 目前总共分裂了几次
 
     for iteration in range(first_iter, opt.iterations + 1):        
@@ -184,10 +185,12 @@ def training_gaussian_splatting(dataset, opt, pipe, checkpoint_iterations, check
                 gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
                 gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
 
-                if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
+                if iteration > opt.densify_from_iter and \
+                        iteration % opt.densification_interval == 0 and \
+                        split_times < max_split_times["outside"]:
                     size_threshold = 20 if iteration > opt.opacity_reset_interval else None
                     gaussians.densify_and_prune(opt.densify_grad_threshold, 0.005, scene.cameras_extent, size_threshold,
-                                                circles_xyzs, circles_rs, max_split_times, split_times)
+                                                circles_xyzs, circles_rs, max_split_times, max_clone_times, split_times)
                     split_times += 1
                 
                 if iteration % opt.opacity_reset_interval == 0 or (dataset.white_background and iteration == opt.densify_from_iter):

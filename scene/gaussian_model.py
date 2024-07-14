@@ -422,7 +422,7 @@ class GaussianModel:
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation)
 
-    def get_inside_outside_mask(self, circles_xyzs, circles_rs, max_split_times, split_times):
+    def get_inside_outside_mask(self, circles_xyzs, circles_rs, max_times, split_times):
         padded_grad = torch.zeros(self._xyz.shape[0], device="cuda")
         selected_pts_mask = torch.where(padded_grad >= 0, True, False)
 
@@ -435,19 +435,21 @@ class GaussianModel:
                                                ) <= circles_rs[i], True, False)
                                            )
         outside_mask = torch.logical_not(inside_mask)
-        if split_times >= max_split_times["inside"]:
+        if split_times >= max_times["inside"]:
             inside_mask = torch.logical_and(inside_mask, torch.tensor(False, device="cuda"))
-        if split_times >= max_split_times["outside"]:
+        if split_times >= max_times["outside"]:
             outside_mask = torch.logical_and(outside_mask, torch.tensor(False, device="cuda"))
 
         return inside_mask, outside_mask
 
-    def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size, circles_xyzs, circles_rs, max_split_times, split_times):
+    def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size, circles_xyzs, circles_rs,
+                          max_split_times, max_clone_times, split_times):
         grads = self.xyz_gradient_accum / self.denom
         grads[grads.isnan()] = 0.0
 
-        inside_mask, outside_mask = self.get_inside_outside_mask(circles_xyzs, circles_rs, max_split_times, split_times)
+        inside_mask, outside_mask = self.get_inside_outside_mask(circles_xyzs, circles_rs, max_clone_times, split_times)
         self.densify_and_clone(grads, max_grad, extent, outside_mask)
+        inside_mask, outside_mask = self.get_inside_outside_mask(circles_xyzs, circles_rs, max_split_times, split_times)
         self.densify_and_split(grads, max_grad, extent, torch.logical_or(inside_mask, outside_mask))
 
         prune_mask = (self.get_opacity < min_opacity).squeeze()
